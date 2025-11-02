@@ -70,8 +70,8 @@ resource "aws_vpc_security_group_egress_rule" "alb_all" {
   ip_protocol       = "-1"
 }
 
-resource "aws_lb_target_group" "whoami" {
-  name        = "${local.name}-whoami"
+resource "aws_lb_target_group" "whoami_blue" {
+  name        = "ecs-whoami-blue"
   port        = 80
   protocol    = "HTTP"
   vpc_id      = aws_vpc.default.id
@@ -91,8 +91,45 @@ resource "aws_lb_listener" "whoami" {
   protocol          = "HTTP"
 
   default_action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "No routes matched"
+      status_code  = "404"
+    }
+  }
+}
+
+# Production traffic rule (default)
+resource "aws_lb_listener_rule" "whoami_production" {
+  listener_arn = aws_lb_listener.whoami.arn
+  priority     = 100
+
+  action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.whoami.arn
+    target_group_arn = aws_lb_target_group.whoami_blue.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/*"]
+    }
+  }
+}
+
+# route to the green target group if there is a header "X-Blue-Green" set to "Test"
+resource "aws_lb_listener_rule" "whoami_test" {
+  listener_arn = aws_lb_listener.whoami.arn
+  priority     = 10
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.whoami_green.arn
+  }
+  condition {
+    http_header {
+      http_header_name = "X-Blue-Green"
+      values           = ["Test"]
+    }
   }
 }
 
@@ -114,12 +151,35 @@ resource "aws_ecs_service" "whoami" {
   }
 
   load_balancer {
-    target_group_arn = aws_lb_target_group.whoami.arn
+    target_group_arn = aws_lb_target_group.whoami_blue.arn
     container_name   = "whoami"
     container_port   = 80
+
+    advanced_configuration {
+      role_arn                   = aws_iam_role.ecs_alb_blue_green.arn
+      production_listener_rule   = aws_lb_listener_rule.whoami_production.arn
+      test_listener_rule         = aws_lb_listener_rule.whoami_test.arn
+      alternate_target_group_arn = aws_lb_target_group.whoami_green.arn
+    }
   }
 }
 
 output "alb_dns_name" {
   value = aws_lb.whoami.dns_name
+}
+
+
+resource "aws_lb_target_group" "whoami_green" {
+  name        = "ecs-whoami-green"
+  port        = 80
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.default.id
+  target_type = "ip"
+
+  health_check {
+    path              = "/"
+    healthy_threshold = 2
+    interval          = 5
+    timeout           = 3
+  }
 }
