@@ -16,6 +16,13 @@ resource "aws_ecs_task_definition" "whoami" {
         }
       ]
 
+      environment = [
+        {
+          name  = "WHOAMI_NAME"
+          value = "New Deployment 2"
+        }
+      ]
+
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -161,6 +168,11 @@ resource "aws_ecs_service" "whoami" {
       test_listener_rule         = aws_lb_listener_rule.whoami_test.arn
       alternate_target_group_arn = aws_lb_target_group.whoami_green.arn
     }
+  }
+
+  lifecycle {
+    # avoiding TF chaing this all the time. Seems buggy
+    ignore_changes = [load_balancer]
   }
 }
 
