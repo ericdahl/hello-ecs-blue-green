@@ -4,6 +4,11 @@ Warning: not yet working
 
 <https://aws.amazon.com/blogs/aws/accelerate-safe-software-releases-with-new-built-in-blue-green-deployments-in-amazon-ecs/>
 
+## Notes
+- No UI button "Green looks good, proceed" 
+  - instead all API driven with lambda lifecycle hooks
+    - could set up custom trigger via SSM Parameter or S3 object - TODO
+
 ## Observations
 
 - bake time 0
