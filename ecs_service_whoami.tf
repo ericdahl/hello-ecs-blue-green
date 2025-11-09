@@ -19,7 +19,54 @@ resource "aws_ecs_task_definition" "whoami" {
       environment = [
         {
           name  = "WHOAMI_NAME"
-          value = "New Deployment 2"
+          value = "Standard Deployment"
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.whoami.name
+          "awslogs-region"        = data.aws_region.current.id
+          "awslogs-stream-prefix" = "whoami"
+        }
+      }
+    }
+  ])
+
+  requires_compatibilities = ["MANAGED_INSTANCES"]
+  network_mode             = "awsvpc"
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_execution.arn
+  runtime_platform {
+    cpu_architecture        = "ARM64"
+    operating_system_family = "LINUX"
+  }
+}
+
+resource "aws_ecs_task_definition" "whoami_new" {
+  family = "${local.name}-whoami-new"
+
+  container_definitions = jsonencode([
+    {
+      name              = "whoami"
+      image             = "traefik/whoami:v1.11.0-arm64"
+      essential         = true
+      memory            = 512
+      memoryReservation = 256
+
+      portMappings = [
+        {
+          containerPort = 80
+          protocol      = "tcp"
+        }
+      ]
+
+      environment = [
+        {
+          name  = "WHOAMI_NAME"
+          value = "New Deployment"
         }
       ]
 
@@ -194,4 +241,6 @@ resource "aws_lb_target_group" "whoami_green" {
     interval          = 5
     timeout           = 3
   }
+
+  deregistration_delay = 0
 }
