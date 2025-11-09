@@ -204,6 +204,11 @@ resource "aws_ecs_service" "whoami" {
     security_groups = [aws_security_group.ecs_service_whoami.id]
   }
 
+  deployment_configuration {
+    strategy = "BLUE_GREEN"
+    bake_time_in_minutes = 5
+  }
+
   load_balancer {
     target_group_arn = aws_lb_target_group.whoami_blue.arn
     container_name   = "whoami"
