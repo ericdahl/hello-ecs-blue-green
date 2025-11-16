@@ -92,6 +92,53 @@ resource "aws_ecs_task_definition" "whoami_new" {
   }
 }
 
+resource "aws_ecs_task_definition" "whoami_newer" {
+  family = "${local.name}-whoami-newer"
+
+  container_definitions = jsonencode([
+    {
+      name              = "whoami"
+      image             = "traefik/whoami:v1.11.0-arm64"
+      essential         = true
+      memory            = 512
+      memoryReservation = 256
+
+      portMappings = [
+        {
+          containerPort = 80
+          protocol      = "tcp"
+        }
+      ]
+
+      environment = [
+        {
+          name  = "WHOAMI_NAME"
+          value = "Newer Deployment"
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.whoami.name
+          "awslogs-region"        = data.aws_region.current.id
+          "awslogs-stream-prefix" = "whoami"
+        }
+      }
+    }
+  ])
+
+  requires_compatibilities = ["MANAGED_INSTANCES"]
+  network_mode             = "awsvpc"
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_execution.arn
+  runtime_platform {
+    cpu_architecture        = "ARM64"
+    operating_system_family = "LINUX"
+  }
+}
+
 resource "aws_cloudwatch_log_group" "whoami" {
   name              = "/ecs/${local.name}/whoami"
   retention_in_days = 7
@@ -159,9 +206,21 @@ resource "aws_lb_listener_rule" "whoami_production" {
   listener_arn = aws_lb_listener.whoami.arn
   priority     = 100
 
-  action {
+action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.whoami_blue.arn
+
+    forward {
+
+      target_group {
+        arn = aws_lb_target_group.whoami_blue.arn
+        weight = 0
+      }
+
+      target_group {
+        arn = aws_lb_target_group.whoami_green.arn
+        weight = 100
+      }
+    }
   }
 
   condition {
@@ -177,7 +236,19 @@ resource "aws_lb_listener_rule" "whoami_test" {
   priority     = 10
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.whoami_green.arn
+
+    forward {
+
+      target_group {
+        arn = aws_lb_target_group.whoami_blue.arn
+        weight = 0
+      }
+
+      target_group {
+        arn = aws_lb_target_group.whoami_green.arn
+        weight = 100
+      }
+    }
   }
   condition {
     http_header {
@@ -190,7 +261,7 @@ resource "aws_lb_listener_rule" "whoami_test" {
 resource "aws_ecs_service" "whoami" {
   name            = "whoami"
   cluster         = aws_ecs_cluster.default.id
-  task_definition = aws_ecs_task_definition.whoami.arn
+  task_definition = aws_ecs_task_definition.whoami_new.arn
   desired_count   = 1
 
   capacity_provider_strategy {
