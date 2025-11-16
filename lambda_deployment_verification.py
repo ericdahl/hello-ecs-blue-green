@@ -10,6 +10,7 @@ def handler(event, context):
 
     This function is invoked as a lifecycle hook during ECS blue/green deployments.
     It checks the SSM parameter and either allows or blocks the deployment.
+    Returns IN_PROGRESS by default until the parameter is set to 'true'.
     """
 
     print(f"Received event: {json.dumps(event)}")
@@ -25,13 +26,22 @@ def handler(event, context):
         if parameter_value == 'true':
             print("Deployment verification passed. Proceeding with deployment.")
             return {"hookStatus": "SUCCEEDED"}
-        else:
+        elif parameter_value == 'false':
             print("Deployment verification failed. Blocking deployment.")
             return {"hookStatus": "FAILED"}
+        else:
+            print("Deployment verification pending. Waiting for approval.")
+            return {
+                "hookStatus": "IN_PROGRESS",
+                "callBackDelay": 10
+            }
 
     except ssm.exceptions.ParameterNotFound:
-        print(f"SSM Parameter '{ssm_parameter_name}' not found. Blocking deployment.")
-        return {"hookStatus": "FAILED"}
+        print(f"SSM Parameter '{ssm_parameter_name}' not found. Waiting for approval.")
+        return {
+            "hookStatus": "IN_PROGRESS",
+            "callBackDelay": 10
+        }
 
     except Exception as e:
         print(f"Error: {str(e)}")

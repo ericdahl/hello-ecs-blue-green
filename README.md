@@ -4,6 +4,8 @@ Warning: not yet working
 
 <https://aws.amazon.com/blogs/aws/accelerate-safe-software-releases-with-new-built-in-blue-green-deployments-in-amazon-ecs/>
 
+<https://github.com/aws-samples/sample-amazon-ecs-blue-green-deployment-patterns/blob/main/ecs-bluegreen-lifecycle-hooks/README.md>
+
 ## Notes
 - No UI button "Green looks good, proceed" 
   - instead all API driven with lambda lifecycle hooks
