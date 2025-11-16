@@ -205,8 +205,14 @@ resource "aws_ecs_service" "whoami" {
   }
 
   deployment_configuration {
-    strategy = "BLUE_GREEN"
+    strategy             = "BLUE_GREEN"
     bake_time_in_minutes = 5
+
+    lifecycle_hook {
+      hook_target_arn = aws_lambda_function.deployment_verification.arn
+      lifecycle_stages = ["POST_TEST_TRAFFIC_SHIFT"]
+      role_arn = aws_iam_role.ecs_invoke_lambda.arn
+    }
   }
 
   load_balancer {
